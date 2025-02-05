@@ -10,20 +10,32 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
+        // CORS configuration for API endpoints
         registry.addMapping("/api/**")
                 .allowedOrigins("*") // Allow all origins
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*") // Allow all headers
                 .allowCredentials(false); // Set to false because "*" does not work with credentials
 
-        registry.addMapping("/videos/**") // Allow video file requests
+        // CORS configuration for video file requests
+        registry.addMapping("/videos/**")
                 .allowedOrigins("*")
                 .allowedMethods("GET", "OPTIONS");
+
+        // CORS configuration for card images
+        registry.addMapping("/CardImage/**")
+        .allowedOrigins("*")
+        .allowedMethods("GET", "OPTIONS");
     }
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        // Serving video files
         registry.addResourceHandler("/videos/**")
                 .addResourceLocations("file:D:/my_own_projects/backend_projects/myproject/youtubeVideos/");
+
+        // Serving card images
+        registry.addResourceHandler("/CardImage/**")
+        .addResourceLocations("file:D:/my_own_projects/backend_projects/myproject/CardImage/");
     }
 }
