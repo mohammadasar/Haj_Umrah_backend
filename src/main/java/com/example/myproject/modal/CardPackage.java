@@ -8,11 +8,18 @@ public class CardPackage {
     @Id
     private String id;
     private String image;
-    private String title1;
-    private String title2;
-    private String title3;
-    private String title4;
-    private String title5;
+    private String packageName;
+    private String price;
+    private String start;
+    private String hotel;
+    private String ticket;
+    private String transport;
+    private String meals;
+    private String ziyarathTour;
+    private String guide;
+    private String kit;
+    private String assist;
+    private String visa;
     
     
 
@@ -38,74 +45,165 @@ public class CardPackage {
 		this.image = image;
 	}
 
+    
 
-
-	public String getTitle1() {
-		return title1;
+	public String getPackageName() {
+		return packageName;
 	}
 
 
 
-	public void setTitle1(String title1) {
-		this.title1 = title1;
+	public void setPackageName(String packageName) {
+		this.packageName = packageName;
 	}
 
 
 
-	public String getTitle2() {
-		return title2;
+	public String getPrice() {
+		return price;
 	}
 
 
 
-	public void setTitle2(String title2) {
-		this.title2 = title2;
+	public void setPrice(String price) {
+		this.price = price;
 	}
 
 
 
-	public String getTitle3() {
-		return title3;
+	public String getStart() {
+		return start;
 	}
 
 
 
-	public void setTitle3(String title3) {
-		this.title3 = title3;
+	public void setStart(String start) {
+		this.start = start;
 	}
 
 
 
-	public String getTitle4() {
-		return title4;
+	public String getHotel() {
+		return hotel;
 	}
 
 
 
-	public void setTitle4(String title4) {
-		this.title4 = title4;
+	public void setHotel(String hotel) {
+		this.hotel = hotel;
 	}
 
 
 
-	public String getTitle5() {
-		return title5;
+	public String getTicket() {
+		return ticket;
 	}
 
 
 
-	public void setTitle5(String title5) {
-		this.title5 = title5;
+	public void setTicket(String ticket) {
+		this.ticket = ticket;
 	}
 
 
 
-	public CardPackage(String image, String title1, String title2, String title3, String title4, String title5) {
+	public String getTransport() {
+		return transport;
+	}
+
+
+
+	public void setTransport(String transport) {
+		this.transport = transport;
+	}
+
+
+
+	public String getMeals() {
+		return meals;
+	}
+
+
+
+	public void setMeals(String meals) {
+		this.meals = meals;
+	}
+
+
+
+	public String getZiyarathTour() {
+		return ziyarathTour;
+	}
+
+
+
+	public void setZiyarathTour(String ziyarathTour) {
+		this.ziyarathTour = ziyarathTour;
+	}
+
+
+
+	public String getGuide() {
+		return guide;
+	}
+
+
+
+	public void setGuide(String guide) {
+		this.guide = guide;
+	}
+
+
+
+	public String getKit() {
+		return kit;
+	}
+
+
+
+	public void setKit(String kit) {
+		this.kit = kit;
+	}
+
+
+
+	public String getAssist() {
+		return assist;
+	}
+
+
+
+	public void setAssist(String assist) {
+		this.assist = assist;
+	}
+
+
+
+	public String getVisa() {
+		return visa;
+	}
+
+
+
+	public void setVisa(String visa) {
+		this.visa = visa;
+	}
+
+
+
+	public CardPackage(String image, String packageName, String price, String start, String hotel, String ticket, String transport, String meals, String ziyarathTour, String guide, String kit, String assist, String visa) {
         this.image = image;
-        this.title1 = title1;
-        this.title2 = title2;
-        this.title3 = title3;
-        this.title4 = title4;
-        this.title5 = title5;
+        this.packageName = packageName;
+        this.price = price;
+        this.start = start;
+        this.hotel = hotel;
+        this.ticket = ticket;
+        this.transport = transport;
+        this.meals = meals;
+        this.ziyarathTour = ziyarathTour;
+        this.guide = guide;
+        this.kit = kit;
+        this.assist = assist;
+        this.visa = visa;
     }
 }

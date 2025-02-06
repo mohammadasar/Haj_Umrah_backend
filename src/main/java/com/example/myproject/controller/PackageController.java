@@ -23,13 +23,20 @@ public class PackageController {
     @PostMapping("/add")
     public Map<String, String> uploadCard(
             @RequestParam("image") MultipartFile image,
-            @RequestParam("title1") String title1,
-            @RequestParam("title2") String title2,
-            @RequestParam("title3") String title3,
-            @RequestParam("title4") String title4,
-            @RequestParam("title5") String title5) {
+            @RequestParam("packageName") String packageName,
+            @RequestParam("price") String price,
+            @RequestParam("start") String start,
+            @RequestParam("hotel") String hotel,
+            @RequestParam("ticket") String ticket,
+            @RequestParam("transport") String transport,
+            @RequestParam("ziyarathTour") String ziyarathTour,
+            @RequestParam("guide") String guide,
+            @RequestParam("meals") String meals,
+            @RequestParam("kit") String kit,
+            @RequestParam("assist") String assist,
+            @RequestParam("visa") String visa) {
 
-        packageService.addCard(image, title1, title2, title3, title4, title5);
+        packageService.addCard(image,packageName, price, start, hotel, ticket, transport, meals, ziyarathTour, guide, kit, assist,visa);
 
         Map<String, String> response = new HashMap<>();
         response.put("message", "Card uploaded successfully!");
@@ -54,13 +61,20 @@ public class PackageController {
     public Map<String, String> updateCard(
             @PathVariable String id,
             @RequestParam(value = "image", required = false) MultipartFile image,
-            @RequestParam("title1") String title1,
-            @RequestParam("title2") String title2,
-            @RequestParam("title3") String title3,
-            @RequestParam("title4") String title4,
-            @RequestParam("title5") String title5) {
+            @RequestParam("packageName") String packageName,
+            @RequestParam("price") String price,
+            @RequestParam("start") String start,
+            @RequestParam("hotel") String hotel,
+            @RequestParam("ticket") String ticket,
+            @RequestParam("transport") String transport,
+            @RequestParam("ziyarathTour") String ziyarathTour,
+            @RequestParam("guide") String guide,
+            @RequestParam("meals") String meals,
+            @RequestParam("kit") String kit,
+            @RequestParam("assist") String assist,
+            @RequestParam("visa") String visa) {
 
-        packageService.updateCard(id, image, title1, title2, title3, title4, title5);
+        packageService.updateCard(id, image, packageName, price, start, hotel, ticket, transport, meals, ziyarathTour, guide, kit, assist, visa);
 
         Map<String, String> response = new HashMap<>();
         response.put("message", "Card updated successfully!");
