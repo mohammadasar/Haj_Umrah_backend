@@ -26,6 +26,11 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addMapping("/CardImage/**")
         .allowedOrigins("*")
         .allowedMethods("GET", "OPTIONS");
+        
+     // CORS configuration for uploads
+        registry.addMapping("/uploads/**")
+                .allowedOrigins("*")
+                .allowedMethods("GET", "OPTIONS");
     }
 
     @Override
@@ -37,5 +42,10 @@ public class WebConfig implements WebMvcConfigurer {
         // Serving card images
         registry.addResourceHandler("/CardImage/**")
         .addResourceLocations("file:D:/my_own_projects/backend_projects/myproject/CardImage/");
+        
+        // Serving uploads
+        registry.addResourceHandler("/uploads/**")
+                .addResourceLocations("file:D:/my_own_projects/backend_projects/myproject/uploads/");
+    
     }
 }
