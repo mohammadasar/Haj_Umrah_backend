@@ -8,44 +8,42 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
+    private static final String FRONTEND_URL = "https://your-frontend.com"; // 🔹 Replace with your frontend URL
+    private static final String UPLOADS_DIR = "/app/uploads/"; // 🔹 Use relative path instead of "D:/"
+
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         // CORS configuration for API endpoints
         registry.addMapping("/api/**")
-                .allowedOrigins("*") // Allow all origins
+                .allowedOrigins(FRONTEND_URL) // 🔹 Allow only frontend, not "*"
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                .allowedHeaders("*") // Allow all headers
-                .allowCredentials(false); // Set to false because "*" does not work with credentials
+                .allowedHeaders("*")
+                .allowCredentials(true); // 🔹 Allow credentials like cookies/tokens
 
-        // CORS configuration for video file requests
+        // CORS configuration for serving files
         registry.addMapping("/videos/**")
-                .allowedOrigins("*")
+                .allowedOrigins(FRONTEND_URL)
                 .allowedMethods("GET", "OPTIONS");
 
-        // CORS configuration for card images
         registry.addMapping("/CardImage/**")
-        .allowedOrigins("*")
-        .allowedMethods("GET", "OPTIONS");
-        
-     // CORS configuration for uploads
+                .allowedOrigins(FRONTEND_URL)
+                .allowedMethods("GET", "OPTIONS");
+
         registry.addMapping("/uploads/**")
-                .allowedOrigins("*")
+                .allowedOrigins(FRONTEND_URL)
                 .allowedMethods("GET", "OPTIONS");
     }
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // Serving video files
+        // 🔹 Use a relative path inside the container (Render does not support "D:/")
         registry.addResourceHandler("/videos/**")
-                .addResourceLocations("file:D:/my_own_projects/backend_projects/myproject/youtubeVideos/");
+                .addResourceLocations("file:" + UPLOADS_DIR + "youtubeVideos/");
 
-        // Serving card images
         registry.addResourceHandler("/CardImage/**")
-        .addResourceLocations("file:D:/my_own_projects/backend_projects/myproject/CardImage/");
-        
-        // Serving uploads
+                .addResourceLocations("file:" + UPLOADS_DIR + "CardImage/");
+
         registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:D:/my_own_projects/backend_projects/myproject/uploads/");
-    
+                .addResourceLocations("file:" + UPLOADS_DIR);
     }
 }

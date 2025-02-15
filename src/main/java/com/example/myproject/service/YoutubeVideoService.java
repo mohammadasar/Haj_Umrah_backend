@@ -10,6 +10,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Optional;
@@ -40,18 +41,21 @@ public class YoutubeVideoService {
 
         try {
             String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
-            Path destination = Path.of(uploadPath, fileName);
+            Path destination = Paths.get(uploadPath, fileName);
 
-            // Ensure directory exists
-            Files.createDirectories(destination.getParent());
+            // ✅ Ensure directory exists
+            File uploadFolder = new File(uploadPath);
+            if (!uploadFolder.exists()) {
+                uploadFolder.mkdirs();
+            }
 
-            // Transfer file safely
+            // ✅ Transfer file safely
             Files.copy(file.getInputStream(), destination, StandardCopyOption.REPLACE_EXISTING);
 
-            // Save video details to MongoDB
+            // ✅ Save video details to MongoDB
             youtubeVideo video = new youtubeVideo();
             video.setName(file.getOriginalFilename());
-            video.setUrl("videos/" + fileName); // No extra slash
+            video.setUrl(destination.toString()); // Store absolute file path
             videoRepository.save(video);
 
             return "Video uploaded successfully";
@@ -74,17 +78,17 @@ public class YoutubeVideoService {
         youtubeVideo video = optionalVideo.get();
 
         try {
-            // Delete old file if exists
-            Path oldFilePath = Path.of(uploadPath, video.getUrl().replace("videos/", ""));
+            // ✅ Delete old file if exists
+            Path oldFilePath = Paths.get(video.getUrl());
             Files.deleteIfExists(oldFilePath);
 
-            // Save new file
+            // ✅ Save new file
             String newFileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
-            Path newFilePath = Path.of(uploadPath, newFileName);
+            Path newFilePath = Paths.get(uploadPath, newFileName);
             Files.copy(file.getInputStream(), newFilePath, StandardCopyOption.REPLACE_EXISTING);
 
-            // Update DB with new file URL
-            video.setUrl("videos/" + newFileName);
+            // ✅ Update DB with new file URL
+            video.setUrl(newFilePath.toString());
             videoRepository.save(video);
             return true;
         } catch (IOException e) {
@@ -104,11 +108,11 @@ public class YoutubeVideoService {
         youtubeVideo video = videoOptional.get();
 
         try {
-            // Delete physical file
-            Path fileToDelete = Path.of(uploadPath, video.getUrl().replace("videos/", ""));
+            // ✅ Delete physical file
+            Path fileToDelete = Paths.get(video.getUrl());
             Files.deleteIfExists(fileToDelete);
 
-            // Remove from DB
+            // ✅ Remove from DB
             videoRepository.deleteById(id);
             return "Video deleted successfully";
         } catch (IOException e) {

@@ -3,7 +3,7 @@ package com.example.myproject.controller;
 import com.example.myproject.modal.youtubeVideo;
 import com.example.myproject.repo.youtubeVideoRepo;
 import com.example.myproject.service.YoutubeVideoService;
-
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
@@ -11,31 +11,30 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
-import java.nio.file.InvalidPathException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.*;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
-
 
 @CrossOrigin(origins = "*")  // Allow all origins (for testing)
 @RestController
 @RequestMapping("/api/videos")
 public class YoutubeVideoController {
 
-    private final String uploadPath = "D:/my_own_projects/backend_projects/myproject/youtubeVideos/"; // Hardcoded upload path
-    private final youtubeVideoRepo videoRepository;
-    private final YoutubeVideoService videoService; //  Inject service
+    @Value("${video.upload.path}")
+    private String uploadPath; // ✅ Use application.properties for path
 
- // ✅ Constructor Injection
+    private final youtubeVideoRepo videoRepository;
+    private final YoutubeVideoService videoService;
+
     public YoutubeVideoController(youtubeVideoRepo videoRepository, YoutubeVideoService videoService) {
         this.videoRepository = videoRepository;
-        this.videoService = videoService; // ✅ Initialize service
+        this.videoService = videoService;
     }
+
     /**
      * Get all video metadata.
      */
@@ -48,19 +47,15 @@ public class YoutubeVideoController {
      * Sanitize the file name to remove illegal characters.
      */
     private String sanitizeFileName(String fileName) {
-        // Replace illegal characters with underscores
         return fileName.replaceAll("[<>:\"/\\\\|?*]", "_");
     }
 
     /**
      * Get the full file path for the given file name.
      */
-    public Path getFilePath(String fileName) {
+    private Path getFilePath(String fileName) {
         try {
-            // Sanitize the file name to prevent path traversal attacks
             fileName = sanitizeFileName(fileName);
-
-            // Construct and return the full path
             return Paths.get(uploadPath, fileName).normalize();
         } catch (InvalidPathException e) {
             throw new RuntimeException("Invalid file path: " + e.getMessage(), e);
@@ -74,46 +69,68 @@ public class YoutubeVideoController {
     public ResponseEntity<Resource> getVideo(@PathVariable String fileName) {
         try {
             Path filePath = getFilePath(fileName);
-            Resource resource = new UrlResource(filePath.toUri());
+            File file = filePath.toFile(); // Convert Path to File
+
+            if (!file.exists()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(null);
+            }
+
+            // ✅ Convert to URL safely
+            Resource resource = new UrlResource(file.toURI());
 
             if (resource.exists() && resource.isReadable()) {
+                String contentType = Files.probeContentType(filePath); // Detect MIME type
+
                 return ResponseEntity.ok()
                         .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
-                        .header(HttpHeaders.CONTENT_TYPE, "video/mp4")
+                        .header(HttpHeaders.CONTENT_TYPE, contentType != null ? contentType : "application/octet-stream")
                         .body(resource);
             } else {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(null);
             }
         } catch (MalformedURLException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(null);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(null);
         }
     }
+
 
     /**
      * Upload a video file and save its metadata.
      */
     @PostMapping
     public ResponseEntity<String> uploadVideo(@RequestParam("file") MultipartFile file) {
-        String fileName = UUID.randomUUID() + "_" + sanitizeFileName(file.getOriginalFilename());
-        File destination = new File(uploadPath + fileName);
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().body("File is required.");
+        }
 
         try {
-            // Save the file to the server
-            file.transferTo(destination);
+            String fileName = UUID.randomUUID() + "_" + sanitizeFileName(file.getOriginalFilename());
+            Path destination = Paths.get(uploadPath, fileName);
 
-            // Save video metadata to the database
+            // ✅ Ensure directory exists
+            Files.createDirectories(destination.getParent());
+
+            // ✅ Save the file
+            file.transferTo(destination.toFile());
+
+            // ✅ Save metadata in MongoDB
             youtubeVideo video = new youtubeVideo();
             video.setName(file.getOriginalFilename());
-            video.setUrl("api/videos/" + fileName);  // Remove the extra slash
+            video.setUrl(fileName);  // ✅ Store file name only, not full path
             videoRepository.save(video);
 
-            System.out.println("Uploaded file: " + fileName);
             return ResponseEntity.ok("Video uploaded successfully");
         } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to upload video");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to upload video: " + e.getMessage());
         }
     }
-    
+
     /**
      * Update video file by ID.
      */
@@ -124,7 +141,7 @@ public class YoutubeVideoController {
         }
 
         try {
-            boolean updated = videoService.updateVideo(id, file); // Now the ID type matches
+            boolean updated = videoService.updateVideo(id, file);
             if (updated) {
                 return ResponseEntity.ok("Video updated successfully.");
             } else {
@@ -135,29 +152,27 @@ public class YoutubeVideoController {
         }
     }
 
-
-
-
     /**
      * Delete a video file and its metadata by ID.
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<String> deleteVideo(@PathVariable String id) {
-        if (videoRepository.existsById(id)) {
-            youtubeVideo video = videoRepository.findById(id).orElse(null);
+        Optional<youtubeVideo> videoOptional = videoRepository.findById(id);
 
-            if (video != null) {
-                // Delete the video file from the server
-                File file = new File(uploadPath + video.getUrl().replace("/api/videos/", ""));
-                if (file.exists() && file.delete()) {
-                    System.out.println("Deleted file: " + file.getName());
-                }
-
-                // Remove the video metadata from the database
-                videoRepository.deleteById(id);
-                return ResponseEntity.ok("Video deleted successfully");
-            }
+        if (videoOptional.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Video not found.");
         }
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Video not found");
+
+        youtubeVideo video = videoOptional.get();
+        Path filePath = getFilePath(video.getUrl()); // ✅ Get correct file path
+
+        try {
+            Files.deleteIfExists(filePath); // ✅ Delete file safely
+
+            videoRepository.deleteById(id);
+            return ResponseEntity.ok("Video deleted successfully.");
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to delete video: " + e.getMessage());
+        }
     }
 }
