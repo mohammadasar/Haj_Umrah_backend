@@ -15,16 +15,16 @@ import java.util.Optional;
 import java.util.UUID;
 
 @RestController
-@CrossOrigin(origins = "http://localhost:5500")
+@CrossOrigin(origins = "https://haj-umrah-services.netlify.app/")
 @RequestMapping("/api/images")
 public class PostControllerr { // Corrected class name
 
-    private static final String UPLOAD_DIR = "D:/my_own_projects/backend_projects/myproject/uploads/"; // Absolute path
+    private static final String UPLOAD_DIR = "/app/uploads/"; // Absolute path
 
     @Autowired
     private PostRepo imageRepository;
 
-    @Value("${image.base.url:http://localhost:8080/uploads/}")
+    @Value("${image.base.url:https://haj-umrah-backend.onrender.com/uploads/}")
     private String baseUrl; // Dynamic base URL for production environments
 
     // ✅ Upload Image

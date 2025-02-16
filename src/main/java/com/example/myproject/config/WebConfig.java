@@ -8,7 +8,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
-    private static final String FRONTEND_URL = "https://your-frontend.com"; // 🔹 Replace with your frontend URL
+    private static final String FRONTEND_URL = "https://haj-umrah-services.netlify.app/"; // 🔹 Replace with your frontend URL
     private static final String UPLOADS_DIR = "/app/uploads/"; // 🔹 Use relative path instead of "D:/"
 
     @Override
