@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-@CrossOrigin(origins = "https://haj-umrah-services.netlify.app/")  // Allow all origins (for testing)
+@CrossOrigin(origins = "https://haj-umrah-services.netlify.app")  // Allow all origins (for testing)
 @RestController
 @RequestMapping("/api/videos")
 public class YoutubeVideoController {

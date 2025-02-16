@@ -15,7 +15,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @RestController
-@CrossOrigin(origins = "https://haj-umrah-services.netlify.app/")
+@CrossOrigin(origins = "https://haj-umrah-services.netlify.app")
 @RequestMapping("/api/images")
 public class PostControllerr { // Corrected class name
 
