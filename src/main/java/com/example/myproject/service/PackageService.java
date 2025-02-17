@@ -105,4 +105,20 @@ public class PackageService {
             throw new RuntimeException("Failed to upload image to Cloudinary", e);
         }
     }
+    
+    // ✅ Image upload helper method (place this at the **bottom** of PackageController)
+    private String uploadImageToCloudinaryString(MultipartFile file) {
+        try {
+            Map<String, Object> uploadResult = cloudinary.uploader().upload(
+                file.getBytes(),
+                ObjectUtils.asMap("resource_type", "auto")
+            );
+            return (String) uploadResult.get("secure_url");
+        } catch (Exception e) {
+            System.err.println("❌ Error uploading to Cloudinary: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Image upload failed: " + e.getMessage());
+        }
+    }
+    
 }
