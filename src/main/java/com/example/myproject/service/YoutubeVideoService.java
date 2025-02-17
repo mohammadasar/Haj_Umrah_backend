@@ -8,10 +8,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.*;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -37,6 +34,12 @@ public class YoutubeVideoService {
     public String uploadVideo(MultipartFile file) {
         if (file.isEmpty()) {
             return "File is empty. Please upload a valid file.";
+        }
+
+        // ✅ Validate file type (optional)
+        String contentType = file.getContentType();
+        if (!contentType.startsWith("video")) {
+            return "Only video files are allowed.";
         }
 
         try {

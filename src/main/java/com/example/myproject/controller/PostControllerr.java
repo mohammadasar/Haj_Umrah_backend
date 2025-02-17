@@ -1,25 +1,25 @@
 package com.example.myproject.controller;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
+import com.example.myproject.modal.Post;
+import com.example.myproject.repo.PostRepo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import com.example.myproject.modal.Post;
-import com.example.myproject.repo.PostRepo;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 @RestController
 @CrossOrigin(origins = "https://haj-umrah-services.netlify.app")
 @RequestMapping("/api/images")
-public class PostControllerr { // Corrected class name
-
-    private static final String UPLOAD_DIR = "/app/uploads/"; // Absolute path
+public class PostControllerr {
 
     @Autowired
     private PostRepo imageRepository;
@@ -27,7 +27,15 @@ public class PostControllerr { // Corrected class name
     @Value("${image.base.url:https://haj-umrah-backend.onrender.com/uploads/}")
     private String baseUrl; // Dynamic base URL for production environments
 
-    // ✅ Upload Image
+    private final Cloudinary cloudinary;
+
+    @Autowired
+    public PostControllerr(PostRepo imageRepository, Cloudinary cloudinary) {
+        this.imageRepository = imageRepository;
+        this.cloudinary = cloudinary;
+    }
+
+    // ✅ Upload Image to Cloudinary
     @PostMapping("/upload")
     public ResponseEntity<UploadResponse> uploadImage(@RequestParam("image") MultipartFile file) {
         if (file.isEmpty()) {
@@ -35,24 +43,18 @@ public class PostControllerr { // Corrected class name
         }
 
         try {
-            File directory = new File(UPLOAD_DIR);
-            if (!directory.exists()) {
-                directory.mkdirs(); // Creates directories if they don't exist
-            }
+            // Upload image to Cloudinary
+            Map<String, Object> uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.emptyMap());
 
-            // Generate a unique file name
-            String fileName = UUID.randomUUID().toString() + "_" + System.currentTimeMillis() + "_" + file.getOriginalFilename();
-            File destinationFile = new File(UPLOAD_DIR + fileName);
-            file.transferTo(destinationFile);
+            // Retrieve the URL from Cloudinary response
+            String imageUrl = (String) uploadResult.get("url");
 
             // Store image URL in database
-            String imageUrl = baseUrl + fileName;
             Post image = new Post(imageUrl);
             imageRepository.save(image);
 
             return ResponseEntity.ok(new UploadResponse("Upload successful!", imageUrl));
         } catch (IOException e) {
-            // Logging the exception (use a logger)
             return ResponseEntity.status(500).body(new UploadResponse("Upload failed!"));
         }
     }
@@ -71,6 +73,7 @@ public class PostControllerr { // Corrected class name
                     .orElseGet(() -> ResponseEntity.status(404).body(new UploadResponse("Image not found!")));
     }
 
+    // ✅ Update Image (Upload to Cloudinary)
     @PutMapping("/update/{id}")
     public ResponseEntity<UploadResponse> updateImage(@PathVariable String id, @RequestParam("image") MultipartFile file) {
         Optional<Post> image = imageRepository.findById(id);
@@ -79,31 +82,17 @@ public class PostControllerr { // Corrected class name
         }
 
         try {
-            File directory = new File(UPLOAD_DIR);
-            if (!directory.exists()) {
-                directory.mkdirs(); // Creates directories if they don't exist
-            }
-
-            // Generate a unique file name
-            String fileName = UUID.randomUUID().toString() + "_" + System.currentTimeMillis() + "_" + file.getOriginalFilename();
-            File destinationFile = new File(UPLOAD_DIR + fileName);
-            file.transferTo(destinationFile);
-
-            // Delete the old image file if exists
-            File oldFile = new File(UPLOAD_DIR + image.get().getImageUrl().substring(image.get().getImageUrl().lastIndexOf("/") + 1));
-            if (oldFile.exists()) {
-                oldFile.delete();
-            }
+            // Upload the new image to Cloudinary
+            Map<String, Object> uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.emptyMap());
+            String imageUrl = (String) uploadResult.get("url");
 
             // Update the image URL in the database
-            String imageUrl = baseUrl + fileName;
             Post imageToUpdate = image.get();
             imageToUpdate.setImageUrl(imageUrl);
             imageRepository.save(imageToUpdate);
 
             return ResponseEntity.ok(new UploadResponse("Image updated successfully!", imageUrl));
         } catch (IOException e) {
-            // Logging the exception (use a logger)
             return ResponseEntity.status(500).body(new UploadResponse("Image update failed!"));
         }
     }
@@ -114,12 +103,7 @@ public class PostControllerr { // Corrected class name
         Optional<Post> image = imageRepository.findById(id);
 
         if (image.isPresent()) {
-            // Optional: Delete the file on disk as well
-            File oldFile = new File(UPLOAD_DIR + image.get().getImageUrl().substring(image.get().getImageUrl().lastIndexOf("/") + 1));
-            if (oldFile.exists()) {
-                oldFile.delete();
-            }
-
+            // Delete the image metadata from the database
             imageRepository.deleteById(id);
             return ResponseEntity.ok(new UploadResponse("Image deleted successfully!"));
         } else {

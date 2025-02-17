@@ -1,10 +1,14 @@
 package com.example.myproject.controller;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import com.example.myproject.modal.CardPackage;
 import com.example.myproject.service.PackageService;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,12 +18,21 @@ import java.util.Map;
 public class PackageController {
 
     private final PackageService packageService;
+    private final Cloudinary cloudinary;
 
-    public PackageController(PackageService packageService) {
+    // Constructor injection for PackageService and Cloudinary
+    public PackageController(PackageService packageService,
+                             @Value("${cloudinary.cloud-name}") String cloudName,
+                             @Value("${cloudinary.api-key}") String apiKey,
+                             @Value("${cloudinary.api-secret}") String apiSecret) {
         this.packageService = packageService;
+        this.cloudinary = new Cloudinary(ObjectUtils.asMap(
+                "cloud_name", cloudName,
+                "api_key", apiKey,
+                "api_secret", apiSecret));
     }
 
-    // Add a new card
+    // Add a new card with image upload to Cloudinary
     @PostMapping("/add")
     public Map<String, String> uploadCard(
             @RequestParam("image") MultipartFile image,
@@ -36,11 +49,18 @@ public class PackageController {
             @RequestParam("assist") String assist,
             @RequestParam("visa") String visa) {
 
-        packageService.addCard(image,packageName, price, start, hotel, ticket, transport, meals, ziyarathTour, guide, kit, assist,visa);
+        try {
+            // Call the service to save the card with Cloudinary image upload handling inside the service method
+            packageService.addCard(image, packageName, price, start, hotel, ticket, transport, meals, ziyarathTour, guide, kit, assist, visa);
 
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Card uploaded successfully!");
-        return response;
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Card uploaded successfully!");
+            return response;
+        } catch (Exception e) {
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Error uploading image: " + e.getMessage());
+            return response;
+        }
     }
 
     // Retrieve all cards
@@ -56,7 +76,7 @@ public class PackageController {
                 .orElseThrow(() -> new RuntimeException("Card not found with ID: " + id));
     }
 
-    // Update a card by its ID
+    // Update a card by its ID with image upload to Cloudinary
     @PutMapping("/update/{id}")
     public Map<String, String> updateCard(
             @PathVariable String id,
@@ -74,11 +94,18 @@ public class PackageController {
             @RequestParam("assist") String assist,
             @RequestParam("visa") String visa) {
 
-        packageService.updateCard(id, image, packageName, price, start, hotel, ticket, transport, meals, ziyarathTour, guide, kit, assist, visa);
+        try {
+            // Call the service to update the card, passing the image (MultipartFile) if present
+            packageService.updateCard(id, image, packageName, price, start, hotel, ticket, transport, meals, ziyarathTour, guide, kit, assist, visa);
 
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Card updated successfully!");
-        return response;
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Card updated successfully!");
+            return response;
+        } catch (Exception e) {
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Error updating card: " + e.getMessage());
+            return response;
+        }
     }
 
     // Delete a card by its ID
@@ -89,5 +116,13 @@ public class PackageController {
         Map<String, String> response = new HashMap<>();
         response.put("message", "Card deleted successfully!");
         return response;
+    }
+
+    // Upload image to Cloudinary directly
+    private String uploadImageToCloudinary(MultipartFile file) throws IOException {
+        Map<String, Object> uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("resource_type", "auto"));
+        
+        // Extract and return the image URL
+        return (String) uploadResult.get("secure_url");
     }
 }
