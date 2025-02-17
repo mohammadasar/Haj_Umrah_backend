@@ -13,14 +13,14 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        // ✅ CORS configuration for API endpoints
+        // CORS configuration for API endpoints
         registry.addMapping("/api/**")
                 .allowedOrigins(FRONTEND_URL)
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true);
 
-        // ✅ CORS configuration for serving files
+        // CORS configuration for serving files
         registry.addMapping("/uploads/**")
                 .allowedOrigins(FRONTEND_URL)
                 .allowedMethods("GET", "OPTIONS");
@@ -28,7 +28,7 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // ✅ Ensure trailing slash in resource locations
+        // Ensure trailing slash in resource locations
         registry.addResourceHandler("/uploads/**")
                 .addResourceLocations("file:" + UPLOADS_DIR + "/");
     }
