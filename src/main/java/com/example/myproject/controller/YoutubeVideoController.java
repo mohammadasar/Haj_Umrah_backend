@@ -49,9 +49,9 @@ public class YoutubeVideoController {
      * Upload a video file to Cloudinary and save its metadata.
      */
     @PostMapping
-    public ResponseEntity<String> uploadVideo(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<Map<String, String>> uploadVideo(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
-            return ResponseEntity.badRequest().body("File is required.");
+            return ResponseEntity.badRequest().body(Map.of("error", "File is required."));
         }
 
         try {
@@ -62,14 +62,19 @@ public class YoutubeVideoController {
             // Save video metadata in MongoDB
             youtubeVideo video = new youtubeVideo();
             video.setName(file.getOriginalFilename());
-            video.setUrl(cloudinaryUrl);  // Store the Cloudinary URL
+            video.setUrl(cloudinaryUrl);
             videoRepository.save(video);
 
-            return ResponseEntity.ok("Video uploaded successfully.");
+            // Return response
+            return ResponseEntity.ok(Map.of(
+                "message", "Video uploaded successfully.",
+                "url", cloudinaryUrl
+            ));
         } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to upload video: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Failed to upload video."));
         }
     }
+
 
     /**
      * Update video file by ID (Upload to Cloudinary).
@@ -81,17 +86,26 @@ public class YoutubeVideoController {
         }
 
         try {
-            // Upload the new video to Cloudinary
-            Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("resource_type", "video"));
-            String cloudinaryUrl = (String) uploadResult.get("url");
-
             Optional<youtubeVideo> videoOptional = videoRepository.findById(id);
             if (videoOptional.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Video not found.");
             }
 
             youtubeVideo video = videoOptional.get();
-            video.setUrl(cloudinaryUrl); // Update the Cloudinary URL
+
+            // Extract public_id from old Cloudinary URL
+            String oldVideoUrl = video.getUrl();
+            String publicId = oldVideoUrl.substring(oldVideoUrl.lastIndexOf("/") + 1, oldVideoUrl.lastIndexOf(".")); // Extract public_id
+
+            // Delete old video from Cloudinary
+            cloudinary.uploader().destroy(publicId, ObjectUtils.asMap("resource_type", "video"));
+
+            // Upload new video
+            Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("resource_type", "video"));
+            String cloudinaryUrl = (String) uploadResult.get("url");
+
+            // Update MongoDB record
+            video.setUrl(cloudinaryUrl);
             videoRepository.save(video);
 
             return ResponseEntity.ok("Video updated successfully.");
@@ -99,6 +113,7 @@ public class YoutubeVideoController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error updating video.");
         }
     }
+
 
     /**
      * Delete a video by ID (Remove video metadata from MongoDB).
@@ -115,11 +130,19 @@ public class YoutubeVideoController {
         String videoUrl = video.getUrl();
 
         try {
+            // Extract public_id from Cloudinary URL
+            String publicId = videoUrl.substring(videoUrl.lastIndexOf("/") + 1, videoUrl.lastIndexOf(".")); // Extract public_id
+
+            // Delete video from Cloudinary
+            cloudinary.uploader().destroy(publicId, ObjectUtils.asMap("resource_type", "video"));
+
             // Delete video metadata from MongoDB
             videoRepository.deleteById(id);
+
             return ResponseEntity.ok("Video deleted successfully.");
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to delete video.");
         }
     }
+
 }
