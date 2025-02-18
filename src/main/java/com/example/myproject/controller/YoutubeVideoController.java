@@ -6,25 +6,21 @@ import com.example.myproject.modal.youtubeVideo;
 import com.example.myproject.repo.youtubeVideoRepo;
 import com.example.myproject.service.YoutubeVideoService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 
-@CrossOrigin(origins = "https://haj-umrah-services.netlify.app")  // Allow all origins (for testing)
+@CrossOrigin(origins = "*")  // Allow all origins (For testing)
 @RestController
 @RequestMapping("/api/videos")
 public class YoutubeVideoController {
-
-    @Value("${video.upload.path}")
-    private String uploadPath;
 
     private final youtubeVideoRepo videoRepository;
     private final YoutubeVideoService videoService;
@@ -46,18 +42,36 @@ public class YoutubeVideoController {
     }
 
     /**
+     * Get a single video metadata by ID.
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getVideoById(@PathVariable String id) {
+        Optional<youtubeVideo> videoOptional = videoRepository.findById(id);
+        if (videoOptional.isPresent()) {
+            return ResponseEntity.ok(videoOptional.get());
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Collections.singletonMap("error", "Video not found."));
+        }
+    }
+
+
+    /**
      * Upload a video file to Cloudinary and save its metadata.
      */
     @PostMapping
     public ResponseEntity<Map<String, String>> uploadVideo(@RequestParam("file") MultipartFile file) {
-        if (file.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "File is required."));
+        if (file.isEmpty() || file.getContentType() == null || !file.getContentType().startsWith("video/")) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Only video files are allowed."));
         }
 
         try {
             // Upload video to Cloudinary
-            Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("resource_type", "video"));
-            String cloudinaryUrl = (String) uploadResult.get("url");
+            Map uploadResult = cloudinary.uploader().upload(file.getBytes(), 
+                ObjectUtils.asMap("resource_type", "video", "format", "mp4")
+            );
+
+            String cloudinaryUrl = (String) uploadResult.get("secure_url");
+            String publicId = (String) uploadResult.get("public_id"); // Save this for deletion
 
             // Save video metadata in MongoDB
             youtubeVideo video = new youtubeVideo();
@@ -65,84 +79,83 @@ public class YoutubeVideoController {
             video.setUrl(cloudinaryUrl);
             videoRepository.save(video);
 
-            // Return response
-            return ResponseEntity.ok(Map.of(
-                "message", "Video uploaded successfully.",
-                "url", cloudinaryUrl
-            ));
+            return ResponseEntity.ok(Map.of("message", "Video uploaded successfully.", "url", cloudinaryUrl));
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Failed to upload video."));
         }
     }
 
-
     /**
-     * Update video file by ID (Upload to Cloudinary).
+     * Update a video file by ID (Delete old and Upload new video).
      */
     @PutMapping("/update/{id}")
-    public ResponseEntity<String> updateVideo(@PathVariable String id, @RequestParam("file") MultipartFile file) {
-        if (file.isEmpty()) {
-            return ResponseEntity.badRequest().body("File is required.");
+    public ResponseEntity<Map<String, String>> updateVideo(@PathVariable String id, @RequestParam("file") MultipartFile file) {
+        if (file.isEmpty() || file.getContentType() == null || !file.getContentType().startsWith("video/")) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Only video files are allowed."));
         }
 
         try {
             Optional<youtubeVideo> videoOptional = videoRepository.findById(id);
             if (videoOptional.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Video not found.");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Video not found."));
             }
 
             youtubeVideo video = videoOptional.get();
 
             // Extract public_id from old Cloudinary URL
             String oldVideoUrl = video.getUrl();
-            String publicId = oldVideoUrl.substring(oldVideoUrl.lastIndexOf("/") + 1, oldVideoUrl.lastIndexOf(".")); // Extract public_id
+            String publicId = oldVideoUrl.substring(oldVideoUrl.indexOf("upload/") + 7, oldVideoUrl.lastIndexOf("."));
 
             // Delete old video from Cloudinary
-            cloudinary.uploader().destroy(publicId, ObjectUtils.asMap("resource_type", "video"));
+            Map deleteResult = cloudinary.uploader().destroy(publicId, ObjectUtils.asMap("resource_type", "video"));
+            if (!"ok".equals(deleteResult.get("result"))) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Failed to delete old video."));
+            }
 
             // Upload new video
-            Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("resource_type", "video"));
-            String cloudinaryUrl = (String) uploadResult.get("url");
+            Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("resource_type", "video", "format", "mp4"));
+            String cloudinaryUrl = (String) uploadResult.get("secure_url");
 
             // Update MongoDB record
             video.setUrl(cloudinaryUrl);
+            video.setName(file.getOriginalFilename());
             videoRepository.save(video);
 
-            return ResponseEntity.ok("Video updated successfully.");
+            return ResponseEntity.ok(Map.of("message", "Video updated successfully.", "url", cloudinaryUrl));
         } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error updating video.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Error updating video."));
         }
     }
 
-
     /**
-     * Delete a video by ID (Remove video metadata from MongoDB).
+     * Delete a video by ID.
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<String> deleteVideo(@PathVariable String id) {
+    public ResponseEntity<Map<String, String>> deleteVideo(@PathVariable String id) {
         Optional<youtubeVideo> videoOptional = videoRepository.findById(id);
 
         if (videoOptional.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Video not found.");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Video not found."));
         }
 
         youtubeVideo video = videoOptional.get();
         String videoUrl = video.getUrl();
 
         try {
-            // Extract public_id from Cloudinary URL
-            String publicId = videoUrl.substring(videoUrl.lastIndexOf("/") + 1, videoUrl.lastIndexOf(".")); // Extract public_id
+            // Extract public_id correctly
+            String publicId = videoUrl.substring(videoUrl.indexOf("upload/") + 7, videoUrl.lastIndexOf("."));
 
             // Delete video from Cloudinary
-            cloudinary.uploader().destroy(publicId, ObjectUtils.asMap("resource_type", "video"));
+            Map deleteResult = cloudinary.uploader().destroy(publicId, ObjectUtils.asMap("resource_type", "video"));
 
-            // Delete video metadata from MongoDB
+            if (!"ok".equals(deleteResult.get("result"))) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Cloudinary deletion failed."));
+            }
+
             videoRepository.deleteById(id);
-
-            return ResponseEntity.ok("Video deleted successfully.");
+            return ResponseEntity.ok(Map.of("message", "Video deleted successfully."));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to delete video.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Failed to delete video."));
         }
     }
-
 }
