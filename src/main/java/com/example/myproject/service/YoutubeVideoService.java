@@ -2,6 +2,8 @@ package com.example.myproject.service;
 
 import com.example.myproject.modal.youtubeVideo;
 import com.example.myproject.repo.youtubeVideoRepo;
+
+import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -68,7 +70,7 @@ public class YoutubeVideoService {
     }
 
     // Update video file
-    public boolean updateVideo(String id, MultipartFile file) {
+    public boolean updateVideo(ObjectId id, MultipartFile file) {
         if (file.isEmpty()) {
             return false; // No file provided
         }
@@ -101,7 +103,7 @@ public class YoutubeVideoService {
     }
 
     // Delete a video by ID
-    public String deleteVideo(String id) {
+    public String deleteVideo(ObjectId id) {
         Optional<youtubeVideo> videoOptional = videoRepository.findById(id);
 
         if (videoOptional.isEmpty()) {

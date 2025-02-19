@@ -5,6 +5,8 @@ import com.cloudinary.utils.ObjectUtils;
 import com.example.myproject.modal.youtubeVideo;
 import com.example.myproject.repo.youtubeVideoRepo;
 import com.example.myproject.service.YoutubeVideoService;
+
+import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -130,32 +132,36 @@ public class YoutubeVideoController {
     /**
      * Delete a video by ID.
      */
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/delete/{id}")
     public ResponseEntity<Map<String, String>> deleteVideo(@PathVariable String id) {
-        Optional<youtubeVideo> videoOptional = videoRepository.findById(id);
-
-        if (videoOptional.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Video not found."));
-        }
-
-        youtubeVideo video = videoOptional.get();
-        String videoUrl = video.getUrl();
-
         try {
-            // Extract public_id correctly
+            ObjectId objectId = new ObjectId(id); // ✅ Convert String to ObjectId
+
+            Optional<youtubeVideo> videoOptional = videoRepository.findById(objectId);
+            if (videoOptional.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Video not found."));
+            }
+
+            youtubeVideo video = videoOptional.get();
+            String videoUrl = video.getUrl();
+
+            // Extract Cloudinary public_id
             String publicId = videoUrl.substring(videoUrl.indexOf("upload/") + 7, videoUrl.lastIndexOf("."));
 
-            // Delete video from Cloudinary
+            // Delete from Cloudinary
             Map deleteResult = cloudinary.uploader().destroy(publicId, ObjectUtils.asMap("resource_type", "video"));
-
-            if (!"ok".equals(deleteResult.get("result"))) {
+            if (!"ok".equals(deleteResult.get("result")) && !"not found".equals(deleteResult.get("result"))) {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Cloudinary deletion failed."));
             }
 
-            videoRepository.deleteById(id);
+            // Delete from MongoDB
+            videoRepository.deleteById(objectId);
+
             return ResponseEntity.ok(Map.of("message", "Video deleted successfully."));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid ObjectId format."));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Failed to delete video."));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Failed to delete video: " + e.getMessage()));
         }
     }
 }
