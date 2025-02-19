@@ -101,31 +101,34 @@ public class YoutubeVideoController {
             }
 
             youtubeVideo video = videoOptional.get();
-
-            // Extract public_id from old Cloudinary URL
             String oldVideoUrl = video.getUrl();
-            String publicId = oldVideoUrl.substring(oldVideoUrl.indexOf("upload/") + 7, oldVideoUrl.lastIndexOf("."));
 
-            // Delete old video from Cloudinary
-            Map deleteResult = cloudinary.uploader().destroy(publicId, ObjectUtils.asMap("resource_type", "video"));
-            if (!"ok".equals(deleteResult.get("result"))) {
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Failed to delete old video."));
+            if (oldVideoUrl != null && !oldVideoUrl.isBlank()) {
+                // Extract public_id safely
+                String publicId = extractPublicId(oldVideoUrl);
+                if (publicId != null) {
+                    // Delete old video from Cloudinary
+                    Map<String, Object> deleteResult = cloudinary.uploader().destroy(publicId, ObjectUtils.asMap("resource_type", "video"));
+                    System.out.println("Cloudinary delete result: " + deleteResult);
+                }
             }
 
-            // Upload new video
-            Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("resource_type", "video", "format", "mp4"));
-            String cloudinaryUrl = (String) uploadResult.get("secure_url");
+            // Upload new video to Cloudinary
+            Map<String, Object> uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("resource_type", "video", "format", "mp4"));
+            String newCloudinaryUrl = (String) uploadResult.get("secure_url");
 
-            // Update MongoDB record
-            video.setUrl(cloudinaryUrl);
+            // Update video metadata
+            video.setUrl(newCloudinaryUrl);
             video.setName(file.getOriginalFilename());
             videoRepository.save(video);
 
-            return ResponseEntity.ok(Map.of("message", "Video updated successfully.", "url", cloudinaryUrl));
+            return ResponseEntity.ok(Map.of("message", "Video updated successfully.", "url", newCloudinaryUrl));
         } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Error updating video."));
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Error updating video.", "details", e.getMessage()));
         }
     }
+
 
     /**
      * Delete a video by ID.
@@ -141,37 +144,49 @@ public class YoutubeVideoController {
         youtubeVideo video = videoOptional.get();
         String videoUrl = video.getUrl();
 
-        // Validate video URL format
-        if (videoUrl == null || !videoUrl.contains("upload/") || !videoUrl.contains(".")) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Invalid video URL format."));
+        if (videoUrl == null || videoUrl.isBlank()) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Video URL is missing."));
         }
 
         try {
-            // Extract public_id safely
-            int startIndex = videoUrl.indexOf("upload/") + 7;
-            int endIndex = videoUrl.lastIndexOf(".");
-
-            if (startIndex < 7 || endIndex <= startIndex) {
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Failed to extract publicId."));
+            // Extract public_id safely using regex
+            String publicId = extractPublicId(videoUrl);
+            if (publicId == null) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Invalid video URL format."));
             }
-
-            String publicId = videoUrl.substring(startIndex, endIndex);
 
             // Delete video from Cloudinary
             Map<String, Object> deleteResult = cloudinary.uploader().destroy(publicId, ObjectUtils.asMap("resource_type", "video"));
+            System.out.println("Cloudinary delete result: " + deleteResult);
 
-            // Ensure Cloudinary deletion was successful
-            if (deleteResult == null || !deleteResult.containsKey("result") || !"ok".equals(deleteResult.get("result"))) {
+            if (!"ok".equals(deleteResult.get("result"))) {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Cloudinary deletion failed."));
             }
 
-            // Delete video from database
+            // Delete from database
             videoRepository.deleteById(id);
             return ResponseEntity.ok(Map.of("message", "Video deleted successfully."));
         } catch (Exception e) {
-            e.printStackTrace(); // Log error for debugging
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to delete video.", "details", e.getMessage()));
         }
     }
+    
+    private String extractPublicId(String videoUrl) {
+        try {
+            String regex = ".*/upload/(v\\d+/)?([^/.]+)\\..*";
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(regex);
+            java.util.regex.Matcher matcher = pattern.matcher(videoUrl);
+
+            if (matcher.matches()) {
+                return matcher.group(2); // Extracts public_id correctly
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null; // Return null if extraction fails
+    }
+
+
 }
