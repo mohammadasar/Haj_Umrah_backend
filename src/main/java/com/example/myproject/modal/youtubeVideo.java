@@ -1,7 +1,6 @@
 package com.example.myproject.modal;
 
 
-import org.bson.types.ObjectId;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -9,17 +8,17 @@ import org.springframework.data.mongodb.core.mapping.Document;
 public class youtubeVideo{
 
     @Id
-    private ObjectId id; // MongoDB uses String type for IDs
+    private String id; // MongoDB uses String type for IDs
 
     private String name;
     private String url;
 
     // Getters and Setters
-    public ObjectId  getId() {
+    public String getId() {
         return id;
     }
 
-    public void setId(ObjectId  id) {
+    public void setId(String id) {
         this.id = id;
     }
 
