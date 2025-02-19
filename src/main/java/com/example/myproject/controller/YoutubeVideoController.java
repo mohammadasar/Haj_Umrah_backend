@@ -141,21 +141,37 @@ public class YoutubeVideoController {
         youtubeVideo video = videoOptional.get();
         String videoUrl = video.getUrl();
 
+        // Validate video URL format
+        if (videoUrl == null || !videoUrl.contains("upload/") || !videoUrl.contains(".")) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Invalid video URL format."));
+        }
+
         try {
-            // Extract public_id correctly
-            String publicId = videoUrl.substring(videoUrl.indexOf("upload/") + 7, videoUrl.lastIndexOf("."));
+            // Extract public_id safely
+            int startIndex = videoUrl.indexOf("upload/") + 7;
+            int endIndex = videoUrl.lastIndexOf(".");
+
+            if (startIndex < 7 || endIndex <= startIndex) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Failed to extract publicId."));
+            }
+
+            String publicId = videoUrl.substring(startIndex, endIndex);
 
             // Delete video from Cloudinary
-            Map deleteResult = cloudinary.uploader().destroy(publicId, ObjectUtils.asMap("resource_type", "video"));
+            Map<String, Object> deleteResult = cloudinary.uploader().destroy(publicId, ObjectUtils.asMap("resource_type", "video"));
 
-            if (!"ok".equals(deleteResult.get("result"))) {
+            // Ensure Cloudinary deletion was successful
+            if (deleteResult == null || !deleteResult.containsKey("result") || !"ok".equals(deleteResult.get("result"))) {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Cloudinary deletion failed."));
             }
 
+            // Delete video from database
             videoRepository.deleteById(id);
             return ResponseEntity.ok(Map.of("message", "Video deleted successfully."));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Failed to delete video."));
+            e.printStackTrace(); // Log error for debugging
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to delete video.", "details", e.getMessage()));
         }
     }
 }
